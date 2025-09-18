@@ -56,11 +56,18 @@ public sealed class StartupManager : IStartupManager
         if (string.IsNullOrWhiteSpace(entry.Name))
             throw new ArgumentException("Entry name cannot be empty.", nameof(entry));
 
+        if (!PathHelpers.IsValidEntryName(entry.Name))
+            throw new ArgumentException("Entry name contains invalid characters or is too long.", nameof(entry));
+
         if (string.IsNullOrWhiteSpace(entry.TargetPath))
             throw new ArgumentException("TargetPath cannot be empty.", nameof(entry));
 
-        if (!PathHelpers.LooksLikeFilePath(entry.TargetPath))
-            throw new ArgumentException("TargetPath looks invalid.", nameof(entry));
+        if (!PathHelpers.IsValidPath(entry.TargetPath))
+            throw new ArgumentException("TargetPath is invalid or contains security risks.", nameof(entry));
+
+        // Validate arguments if provided
+        if (!string.IsNullOrWhiteSpace(entry.Arguments) && entry.Arguments.Length > 1024)
+            throw new ArgumentException("Arguments string is too long (max 1024 characters).", nameof(entry));
 
         // Optional: you could require that the file exists
         // if (!File.Exists(Unquote(entry.TargetPath))) ...
