@@ -7,7 +7,7 @@
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
 
     <PackageId>WindowsAutostartApi</PackageId>
-    <Authors>Ben S.</Authors>
+    <Authors>Ben Sowieja</Authors>
     <Description>Unified API to manage Windows startup entries (Registry Run/RunOnce, Startup folder shortcuts).</Description>
     <PackageTags>windows autostart startup registry run runonce startupfolder shelllink</PackageTags>
     <RepositoryUrl>https://github.com/TristanAtze/WindowsAutostartApi</RepositoryUrl>
