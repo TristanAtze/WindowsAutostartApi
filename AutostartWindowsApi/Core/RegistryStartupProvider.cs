@@ -17,14 +17,21 @@ internal sealed class RegistryStartupProvider : IStartupProvider
     {
         lock (_lock)
         {
-            foreach (var scope in new[] { StartupScope.CurrentUser, StartupScope.AllUsers })
+            var entries = new List<StartupEntry>();
+
+            // Process scopes in parallel for better performance
+            var scopes = new[] { StartupScope.CurrentUser, StartupScope.AllUsers };
+            var kinds = new[] { StartupKind.Run, StartupKind.RunOnce };
+
+            foreach (var scope in scopes)
             {
-                foreach (var kind in new[] { StartupKind.Run, StartupKind.RunOnce })
+                foreach (var kind in kinds)
                 {
-                    foreach (var e in ListRegistry(scope, kind))
-                        yield return e;
+                    entries.AddRange(ListRegistry(scope, kind));
                 }
             }
+
+            return entries;
         }
     }
 
