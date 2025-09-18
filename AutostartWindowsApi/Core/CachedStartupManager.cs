@@ -29,7 +29,7 @@ public sealed class CachedStartupManager : IStartupManager, IDisposable
         }, cacheExpiry)
     { }
 
-    internal CachedStartupManager(IEnumerable<IStartupProvider> providers, TimeSpan? cacheExpiry = null)
+    public CachedStartupManager(IEnumerable<IStartupProvider> providers, TimeSpan? cacheExpiry = null)
     {
         _providers = providers.ToArray();
         _cacheExpiry = cacheExpiry ?? TimeSpan.FromMinutes(5);

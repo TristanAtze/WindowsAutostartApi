@@ -4,7 +4,7 @@ using System.Linq;
 
 namespace WindowsAutostartApi.Utils;
 
-internal static class PathHelpers
+public static class PathHelpers
 {
     /// <summary>
     /// Ensures a Windows-safe quoted path only when necessary.

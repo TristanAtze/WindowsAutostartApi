@@ -20,7 +20,7 @@ public sealed class StartupManager : IStartupManager
         })
     { }
 
-    internal StartupManager(IEnumerable<IStartupProvider> providers)
+    public StartupManager(IEnumerable<IStartupProvider> providers)
     {
         _providers = providers.ToArray();
     }
