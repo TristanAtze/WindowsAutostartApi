@@ -11,14 +11,19 @@ namespace WindowsAutostartApi.Core;
 [SupportedOSPlatform("windows")]
 internal sealed class RegistryStartupProvider : IStartupProvider
 {
+    private static readonly object _lock = new object();
+
     public IEnumerable<StartupEntry> ListAll()
     {
-        foreach (var scope in new[] { StartupScope.CurrentUser, StartupScope.AllUsers })
+        lock (_lock)
         {
-            foreach (var kind in new[] { StartupKind.Run, StartupKind.RunOnce })
+            foreach (var scope in new[] { StartupScope.CurrentUser, StartupScope.AllUsers })
             {
-                foreach (var e in ListRegistry(scope, kind))
-                    yield return e;
+                foreach (var kind in new[] { StartupKind.Run, StartupKind.RunOnce })
+                {
+                    foreach (var e in ListRegistry(scope, kind))
+                        yield return e;
+                }
             }
         }
     }
@@ -27,7 +32,12 @@ internal sealed class RegistryStartupProvider : IStartupProvider
         => kind == StartupKind.Run || kind == StartupKind.RunOnce;
 
     public bool Exists(string name, StartupScope scope, StartupKind kind)
-        => ReadRegistryValue(scope, kind, name) is not null;
+    {
+        lock (_lock)
+        {
+            return ReadRegistryValue(scope, kind, name) is not null;
+        }
+    }
 
     public void Add(StartupEntry entry)
     {
@@ -37,46 +47,52 @@ internal sealed class RegistryStartupProvider : IStartupProvider
         if (!string.IsNullOrWhiteSpace(entry.Arguments))
             command += " " + entry.Arguments;
 
-        try
+        lock (_lock)
         {
-            using var baseKey = GetBaseKey(entry.Scope, writable: true);
-            using var key = baseKey.CreateSubKey(GetRunKeyPath(entry.Kind))
-                          ?? throw new InvalidOperationException("Failed to open or create the Run key.");
-            key.SetValue(entry.Name, command, RegistryValueKind.String);
-        }
-        catch (SecurityException ex)
-        {
-            throw new UnauthorizedAccessException($"Access denied when writing to {entry.Scope} registry. Administrator rights may be required.", ex);
-        }
-        catch (UnauthorizedAccessException ex)
-        {
-            throw new UnauthorizedAccessException($"Access denied when writing to {entry.Scope} registry. Administrator rights may be required.", ex);
-        }
-        catch (Exception ex) when (ex is ArgumentException or ObjectDisposedException)
-        {
-            throw new InvalidOperationException($"Failed to add startup entry '{entry.Name}': {ex.Message}", ex);
+            try
+            {
+                using var baseKey = GetBaseKey(entry.Scope, writable: true);
+                using var key = baseKey.CreateSubKey(GetRunKeyPath(entry.Kind))
+                              ?? throw new InvalidOperationException("Failed to open or create the Run key.");
+                key.SetValue(entry.Name, command, RegistryValueKind.String);
+            }
+            catch (SecurityException ex)
+            {
+                throw new UnauthorizedAccessException($"Access denied when writing to {entry.Scope} registry. Administrator rights may be required.", ex);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                throw new UnauthorizedAccessException($"Access denied when writing to {entry.Scope} registry. Administrator rights may be required.", ex);
+            }
+            catch (Exception ex) when (ex is ArgumentException or ObjectDisposedException)
+            {
+                throw new InvalidOperationException($"Failed to add startup entry '{entry.Name}': {ex.Message}", ex);
+            }
         }
     }
 
     public void Remove(string name, StartupScope scope, StartupKind kind)
     {
-        try
+        lock (_lock)
         {
-            using var baseKey = GetBaseKey(scope, writable: true);
-            using var key = baseKey.OpenSubKey(GetRunKeyPath(kind), writable: true);
-            key?.DeleteValue(name, throwOnMissingValue: false);
-        }
-        catch (SecurityException ex)
-        {
-            throw new UnauthorizedAccessException($"Access denied when removing from {scope} registry. Administrator rights may be required.", ex);
-        }
-        catch (UnauthorizedAccessException ex)
-        {
-            throw new UnauthorizedAccessException($"Access denied when removing from {scope} registry. Administrator rights may be required.", ex);
-        }
-        catch (Exception ex) when (ex is ArgumentException or ObjectDisposedException)
-        {
-            throw new InvalidOperationException($"Failed to remove startup entry '{name}': {ex.Message}", ex);
+            try
+            {
+                using var baseKey = GetBaseKey(scope, writable: true);
+                using var key = baseKey.OpenSubKey(GetRunKeyPath(kind), writable: true);
+                key?.DeleteValue(name, throwOnMissingValue: false);
+            }
+            catch (SecurityException ex)
+            {
+                throw new UnauthorizedAccessException($"Access denied when removing from {scope} registry. Administrator rights may be required.", ex);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                throw new UnauthorizedAccessException($"Access denied when removing from {scope} registry. Administrator rights may be required.", ex);
+            }
+            catch (Exception ex) when (ex is ArgumentException or ObjectDisposedException)
+            {
+                throw new InvalidOperationException($"Failed to remove startup entry '{name}': {ex.Message}", ex);
+            }
         }
     }
 

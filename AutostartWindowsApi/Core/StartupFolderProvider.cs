@@ -10,25 +10,29 @@ namespace WindowsAutostartApi.Core;
 [SupportedOSPlatform("windows")]
 internal sealed class StartupFolderProvider : IStartupProvider
 {
+    private static readonly object _lock = new object();
     public IEnumerable<StartupEntry> ListAll()
     {
-        foreach (var scope in new[] { StartupScope.CurrentUser, StartupScope.AllUsers })
+        lock (_lock)
         {
-            var dir = GetStartupFolder(scope);
-            if (!Directory.Exists(dir)) continue;
-
-            foreach (var lnk in Directory.EnumerateFiles(dir, "*.lnk"))
+            foreach (var scope in new[] { StartupScope.CurrentUser, StartupScope.AllUsers })
             {
-                var name = Path.GetFileNameWithoutExtension(lnk);
-                if (ShellLinkInterop.TryResolveShortcut(lnk, out var target, out var args)
-                    && !string.IsNullOrWhiteSpace(target))
+                var dir = GetStartupFolder(scope);
+                if (!Directory.Exists(dir)) continue;
+
+                foreach (var lnk in Directory.EnumerateFiles(dir, "*.lnk"))
                 {
-                    yield return new StartupEntry(
-                        Name: name,
-                        TargetPath: target!,
-                        Arguments: string.IsNullOrWhiteSpace(args) ? null : args,
-                        Scope: scope,
-                        Kind: StartupKind.StartupFolder);
+                    var name = Path.GetFileNameWithoutExtension(lnk);
+                    if (ShellLinkInterop.TryResolveShortcut(lnk, out var target, out var args)
+                        && !string.IsNullOrWhiteSpace(target))
+                    {
+                        yield return new StartupEntry(
+                            Name: name,
+                            TargetPath: target!,
+                            Arguments: string.IsNullOrWhiteSpace(args) ? null : args,
+                            Scope: scope,
+                            Kind: StartupKind.StartupFolder);
+                    }
                 }
             }
         }
@@ -39,29 +43,60 @@ internal sealed class StartupFolderProvider : IStartupProvider
 
     public bool Exists(string name, StartupScope scope, StartupKind kind)
     {
-        var path = FindShortcutPath(scope, name);
-        return File.Exists(path);
+        lock (_lock)
+        {
+            var path = FindShortcutPath(scope, name);
+            return File.Exists(path);
+        }
     }
 
     public void Add(StartupEntry entry)
     {
         if (!Supports(entry.Kind)) throw new NotSupportedException($"{nameof(StartupFolderProvider)} does not support {entry.Kind}");
 
-        var folder = GetStartupFolder(entry.Scope);
-        Directory.CreateDirectory(folder);
+        lock (_lock)
+        {
+            try
+            {
+                var folder = GetStartupFolder(entry.Scope);
+                Directory.CreateDirectory(folder);
 
-        var path = FindShortcutPath(entry.Scope, entry.Name);
-        if (string.IsNullOrWhiteSpace(path))
-            path = Path.Combine(folder, entry.Name + ".lnk");
+                var path = FindShortcutPath(entry.Scope, entry.Name);
+                if (string.IsNullOrWhiteSpace(path))
+                    path = Path.Combine(folder, entry.Name + ".lnk");
 
-        ShellLinkInterop.CreateShortcut(path, entry.TargetPath, entry.Arguments);
+                ShellLinkInterop.CreateShortcut(path, entry.TargetPath, entry.Arguments);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                throw new UnauthorizedAccessException($"Access denied when creating shortcut in {entry.Scope} startup folder. Administrator rights may be required.", ex);
+            }
+            catch (IOException ex)
+            {
+                throw new InvalidOperationException($"Failed to create startup shortcut '{entry.Name}': {ex.Message}", ex);
+            }
+        }
     }
 
     public void Remove(string name, StartupScope scope, StartupKind kind)
     {
-        var path = FindShortcutPath(scope, name);
-        if (File.Exists(path))
-            File.Delete(path);
+        lock (_lock)
+        {
+            try
+            {
+                var path = FindShortcutPath(scope, name);
+                if (File.Exists(path))
+                    File.Delete(path);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                throw new UnauthorizedAccessException($"Access denied when removing shortcut from {scope} startup folder. Administrator rights may be required.", ex);
+            }
+            catch (IOException ex)
+            {
+                throw new InvalidOperationException($"Failed to remove startup shortcut '{name}': {ex.Message}", ex);
+            }
+        }
     }
 
     // ----- Helpers -----
