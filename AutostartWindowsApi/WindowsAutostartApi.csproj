@@ -1,0 +1,26 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+
+    <PackageId>WindowsAutostartApi</PackageId>
+    <Authors>Ben S.</Authors>
+    <Description>Unified API to manage Windows startup entries (Registry Run/RunOnce, Startup folder shortcuts).</Description>
+    <PackageTags>windows autostart startup registry run runonce startupfolder shelllink</PackageTags>
+    <RepositoryUrl>https://github.com/TristanAtze/WindowsAutostartApi</RepositoryUrl>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <SupportedPlatform Include="windows" />
+	<None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+</Project>

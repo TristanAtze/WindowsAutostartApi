@@ -1,0 +1,36 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.14.36429.23 d17.14
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WindowsAutostartApi", "AutostartWindowsApi\WindowsAutostartApi.csproj", "{96B90B8C-6266-47B4-8109-33AC6558B10F}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AutostartDemo", "AutostartDemo\AutostartDemo.csproj", "{E0F2907A-9ED0-45AB-96F0-18FE4CB50F58}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Projektmappenelemente", "Projektmappenelemente", "{84D27F74-D2BA-6C25-2661-968F101900D9}"
+	ProjectSection(SolutionItems) = preProject
+		README.md = README.md
+	EndProjectSection
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{96B90B8C-6266-47B4-8109-33AC6558B10F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{96B90B8C-6266-47B4-8109-33AC6558B10F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{96B90B8C-6266-47B4-8109-33AC6558B10F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{96B90B8C-6266-47B4-8109-33AC6558B10F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E0F2907A-9ED0-45AB-96F0-18FE4CB50F58}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E0F2907A-9ED0-45AB-96F0-18FE4CB50F58}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E0F2907A-9ED0-45AB-96F0-18FE4CB50F58}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E0F2907A-9ED0-45AB-96F0-18FE4CB50F58}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {ECCAB7C3-CB50-4A57-A5DC-28D690843178}
+	EndGlobalSection
+EndGlobal
