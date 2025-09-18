@@ -131,7 +131,7 @@ internal sealed class RegistryStartupProvider : IStartupProvider
             yield break;
         }
 
-        foreach (var name in key.GetValueNames())
+        foreach (var name in key!.GetValueNames())
         {
             var value = key.GetValue(name) as string;
             if (string.IsNullOrWhiteSpace(value)) continue;
