@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Runtime.Versioning;
+using System.Security;
 using WindowsAutostartApi.Abstractions;
 using WindowsAutostartApi.Utils;
 
@@ -36,48 +37,113 @@ internal sealed class RegistryStartupProvider : IStartupProvider
         if (!string.IsNullOrWhiteSpace(entry.Arguments))
             command += " " + entry.Arguments;
 
-        using var baseKey = GetBaseKey(entry.Scope, writable: true);
-        using var key = baseKey.CreateSubKey(GetRunKeyPath(entry.Kind))
-                      ?? throw new InvalidOperationException("Failed to open or create the Run key.");
-        key.SetValue(entry.Name, command, RegistryValueKind.String);
+        try
+        {
+            using var baseKey = GetBaseKey(entry.Scope, writable: true);
+            using var key = baseKey.CreateSubKey(GetRunKeyPath(entry.Kind))
+                          ?? throw new InvalidOperationException("Failed to open or create the Run key.");
+            key.SetValue(entry.Name, command, RegistryValueKind.String);
+        }
+        catch (SecurityException ex)
+        {
+            throw new UnauthorizedAccessException($"Access denied when writing to {entry.Scope} registry. Administrator rights may be required.", ex);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            throw new UnauthorizedAccessException($"Access denied when writing to {entry.Scope} registry. Administrator rights may be required.", ex);
+        }
+        catch (Exception ex) when (ex is ArgumentException or ObjectDisposedException)
+        {
+            throw new InvalidOperationException($"Failed to add startup entry '{entry.Name}': {ex.Message}", ex);
+        }
     }
 
     public void Remove(string name, StartupScope scope, StartupKind kind)
     {
-        using var baseKey = GetBaseKey(scope, writable: true);
-        using var key = baseKey.OpenSubKey(GetRunKeyPath(kind), writable: true);
-        key?.DeleteValue(name, throwOnMissingValue: false);
+        try
+        {
+            using var baseKey = GetBaseKey(scope, writable: true);
+            using var key = baseKey.OpenSubKey(GetRunKeyPath(kind), writable: true);
+            key?.DeleteValue(name, throwOnMissingValue: false);
+        }
+        catch (SecurityException ex)
+        {
+            throw new UnauthorizedAccessException($"Access denied when removing from {scope} registry. Administrator rights may be required.", ex);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            throw new UnauthorizedAccessException($"Access denied when removing from {scope} registry. Administrator rights may be required.", ex);
+        }
+        catch (Exception ex) when (ex is ArgumentException or ObjectDisposedException)
+        {
+            throw new InvalidOperationException($"Failed to remove startup entry '{name}': {ex.Message}", ex);
+        }
     }
 
     // ----- Helpers -----
 
     private static IEnumerable<StartupEntry> ListRegistry(StartupScope scope, StartupKind kind)
     {
-        using var baseKey = GetBaseKey(scope, writable: false);
-        using var key = baseKey.OpenSubKey(GetRunKeyPath(kind), writable: false);
-        if (key is null) yield break;
+        RegistryKey? baseKey = null;
+        RegistryKey? key = null;
+        bool accessDenied = false;
+
+        try
+        {
+            baseKey = GetBaseKey(scope, writable: false);
+            key = baseKey.OpenSubKey(GetRunKeyPath(kind), writable: false);
+            if (key is null) yield break;
+        }
+        catch (SecurityException)
+        {
+            accessDenied = true;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            accessDenied = true;
+        }
+
+        if (accessDenied)
+        {
+            yield break;
+        }
 
         foreach (var name in key.GetValueNames())
         {
             var value = key.GetValue(name) as string;
             if (string.IsNullOrWhiteSpace(value)) continue;
 
-            SplitCommand(value, out var target, out var args);
-
-            yield return new StartupEntry(
-                Name: name,
-                TargetPath: target,
-                Arguments: args,
-                Scope: scope,
-                Kind: kind);
+            if (TrySplitCommand(value, out var target, out var args) && !string.IsNullOrWhiteSpace(target))
+            {
+                yield return new StartupEntry(
+                    Name: name,
+                    TargetPath: target,
+                    Arguments: args,
+                    Scope: scope,
+                    Kind: kind);
+            }
         }
+
+        key?.Dispose();
+        baseKey?.Dispose();
     }
 
     private static string? ReadRegistryValue(StartupScope scope, StartupKind kind, string name)
     {
-        using var baseKey = GetBaseKey(scope, writable: false);
-        using var key = baseKey.OpenSubKey(GetRunKeyPath(kind), writable: false);
-        return key?.GetValue(name) as string;
+        try
+        {
+            using var baseKey = GetBaseKey(scope, writable: false);
+            using var key = baseKey.OpenSubKey(GetRunKeyPath(kind), writable: false);
+            return key?.GetValue(name) as string;
+        }
+        catch (SecurityException)
+        {
+            return null;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return null;
+        }
     }
 
     private static RegistryKey GetBaseKey(StartupScope scope, bool writable)
@@ -92,10 +158,16 @@ internal sealed class RegistryStartupProvider : IStartupProvider
         => $@"Software\Microsoft\Windows\CurrentVersion\{(kind == StartupKind.RunOnce ? "RunOnce" : "Run")}";
 
     /// <summary>
-    /// Splits a command value of form: "C:\path to\app.exe" arg1 arg2
+    /// Tries to split a command value of form: "C:\path to\app.exe" arg1 arg2
     /// </summary>
-    private static void SplitCommand(string command, out string target, out string? args)
+    private static bool TrySplitCommand(string command, out string? target, out string? args)
     {
+        target = null;
+        args = null;
+
+        if (string.IsNullOrWhiteSpace(command))
+            return false;
+
         command = command.Trim();
 
         if (command.StartsWith("\""))
@@ -106,8 +178,15 @@ internal sealed class RegistryStartupProvider : IStartupProvider
             {
                 target = command.Substring(1, end - 1);
                 args = command.Length > end + 1 ? command.Substring(end + 1).TrimStart() : null;
-                return;
+
+                // Additional validation for quoted paths
+                if (string.IsNullOrWhiteSpace(target))
+                    return false;
+
+                return true;
             }
+            // Malformed quoted string
+            return false;
         }
 
         // Unquoted: split on first whitespace
@@ -121,6 +200,12 @@ internal sealed class RegistryStartupProvider : IStartupProvider
         {
             target = command.Substring(0, idx);
             args = command.Substring(idx + 1).TrimStart();
+
+            // Don't return empty args
+            if (string.IsNullOrWhiteSpace(args))
+                args = null;
         }
+
+        return !string.IsNullOrWhiteSpace(target);
     }
 }
