@@ -5,7 +5,7 @@ namespace WindowsAutostartApi.Abstractions;
 /// <summary>
 /// Low-level provider for a specific startup mechanism (e.g., Registry or Startup Folder).
 /// </summary>
-internal interface IStartupProvider
+public interface IStartupProvider
 {
     IEnumerable<StartupEntry> ListAll();
     bool Supports(StartupKind kind);
