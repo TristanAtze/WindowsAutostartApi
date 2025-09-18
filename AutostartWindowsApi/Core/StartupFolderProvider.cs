@@ -15,26 +15,46 @@ internal sealed class StartupFolderProvider : IStartupProvider
     {
         lock (_lock)
         {
+            var entries = new List<StartupEntry>();
+
             foreach (var scope in new[] { StartupScope.CurrentUser, StartupScope.AllUsers })
             {
                 var dir = GetStartupFolder(scope);
                 if (!Directory.Exists(dir)) continue;
 
-                foreach (var lnk in Directory.EnumerateFiles(dir, "*.lnk"))
+                try
                 {
-                    var name = Path.GetFileNameWithoutExtension(lnk);
-                    if (ShellLinkInterop.TryResolveShortcut(lnk, out var target, out var args)
-                        && !string.IsNullOrWhiteSpace(target))
+                    // Get all .lnk files at once for better performance
+                    var lnkFiles = Directory.GetFiles(dir, "*.lnk", SearchOption.TopDirectoryOnly);
+
+                    foreach (var lnk in lnkFiles)
                     {
-                        yield return new StartupEntry(
-                            Name: name,
-                            TargetPath: target!,
-                            Arguments: string.IsNullOrWhiteSpace(args) ? null : args,
-                            Scope: scope,
-                            Kind: StartupKind.StartupFolder);
+                        var name = Path.GetFileNameWithoutExtension(lnk);
+                        if (ShellLinkInterop.TryResolveShortcut(lnk, out var target, out var args)
+                            && !string.IsNullOrWhiteSpace(target))
+                        {
+                            entries.Add(new StartupEntry(
+                                Name: name,
+                                TargetPath: target!,
+                                Arguments: string.IsNullOrWhiteSpace(args) ? null : args,
+                                Scope: scope,
+                                Kind: StartupKind.StartupFolder));
+                        }
                     }
                 }
+                catch (UnauthorizedAccessException)
+                {
+                    // Skip directories we can't access
+                    continue;
+                }
+                catch (DirectoryNotFoundException)
+                {
+                    // Skip non-existent directories
+                    continue;
+                }
             }
+
+            return entries;
         }
     }
 
