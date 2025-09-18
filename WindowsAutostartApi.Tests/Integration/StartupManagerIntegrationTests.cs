@@ -58,7 +58,7 @@ public class StartupManagerIntegrationTests : IDisposable
         var addAction = () => _manager.Add(testEntry);
         addAction.Should().NotThrow();
 
-        // Verify entry exists
+        // Verify if entry exists
         var exists = _manager.Exists(testEntry.Name, testEntry.Scope, testEntry.Kind);
         exists.Should().BeTrue();
 
