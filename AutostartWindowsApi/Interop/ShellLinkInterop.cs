@@ -58,16 +58,30 @@ internal static class ShellLinkInterop
     /// </summary>
     public static void CreateShortcut(string lnkPath, string target, string? args)
     {
-        var link = (IShellLinkW)new ShellLink();
-        link.SetPath(target);
-        link.SetArguments(args ?? string.Empty);
+        object? linkObj = null;
+        try
+        {
+            linkObj = new ShellLink();
+            var link = (IShellLinkW)linkObj;
+            link.SetPath(target);
+            link.SetArguments(args ?? string.Empty);
 
-        var workingDir = System.IO.Path.GetDirectoryName(target);
-        if (!string.IsNullOrWhiteSpace(workingDir))
-            link.SetWorkingDirectory(workingDir!);
+            var workingDir = System.IO.Path.GetDirectoryName(target);
+            if (!string.IsNullOrWhiteSpace(workingDir))
+                link.SetWorkingDirectory(workingDir!);
 
-        var pf = (IPersistFile)link;
-        pf.Save(lnkPath, true);
+            var pf = (IPersistFile)link;
+            pf.Save(lnkPath, true);
+        }
+        catch (COMException ex)
+        {
+            throw new InvalidOperationException($"Failed to create shortcut at '{lnkPath}': {ex.Message}", ex);
+        }
+        finally
+        {
+            if (linkObj != null)
+                Marshal.ReleaseComObject(linkObj);
+        }
     }
 
     /// <summary>
@@ -77,25 +91,44 @@ internal static class ShellLinkInterop
     {
         target = null;
         args = null;
+        object? linkObj = null;
 
-        var link = (IShellLinkW)new ShellLink();
-        var pf = (IPersistFile)link;
-        pf.Load(lnkPath, 0);
-
-        var sbPath = new StringBuilder(MAX_PATH);
-        link.GetPath(sbPath, sbPath.Capacity, IntPtr.Zero, 0);
-        var path = sbPath.ToString();
-
-        var sbArgs = new StringBuilder(MAX_PATH);
-        link.GetArguments(sbArgs, sbArgs.Capacity);
-        var a = sbArgs.ToString();
-
-        if (!string.IsNullOrWhiteSpace(path))
+        try
         {
-            target = path;
-            args = string.IsNullOrWhiteSpace(a) ? null : a;
-            return true;
+            linkObj = new ShellLink();
+            var link = (IShellLinkW)linkObj;
+            var pf = (IPersistFile)link;
+            pf.Load(lnkPath, 0);
+
+            var sbPath = new StringBuilder(MAX_PATH);
+            link.GetPath(sbPath, sbPath.Capacity, IntPtr.Zero, 0);
+            var path = sbPath.ToString();
+
+            var sbArgs = new StringBuilder(MAX_PATH);
+            link.GetArguments(sbArgs, sbArgs.Capacity);
+            var a = sbArgs.ToString();
+
+            if (!string.IsNullOrWhiteSpace(path))
+            {
+                target = path;
+                args = string.IsNullOrWhiteSpace(a) ? null : a;
+                return true;
+            }
         }
+        catch (COMException)
+        {
+            // Shortcut is invalid or inaccessible
+        }
+        catch (UnauthorizedAccessException)
+        {
+            // No permission to read shortcut
+        }
+        finally
+        {
+            if (linkObj != null)
+                Marshal.ReleaseComObject(linkObj);
+        }
+
         return false;
     }
 }
