@@ -189,22 +189,38 @@ public class StartupManagerIntegrationTests : IDisposable
 
     [Fact]
     [Trait("Category", "Integration")]
-    public void Add_AllUsersScope_WithoutElevation_ShouldThrowUnauthorizedAccessException()
+    public void Add_AllUsersScope_ShouldBehaveDependingOnElevation()
     {
-        // Skip if running as administrator
-        Skip.If(IsAdministrator(), "This test must run without administrator privileges");
-
         // Arrange
         var testEntry = new StartupEntry(
-            "WindowsAutostartApiTestAllUsersNoAdmin",
+            "WindowsAutostartApiTestAllUsersPermission",
             @"C:\Windows\System32\notepad.exe",
-            "--no-admin-test",
+            "--permission-test",
             StartupScope.AllUsers,
             StartupKind.Run);
 
-        // Act & Assert
-        var action = () => _manager.Add(testEntry);
-        action.Should().Throw<UnauthorizedAccessException>();
+        if (IsAdministrator())
+        {
+            // When running as admin, operation should succeed
+            _entriesToCleanup.Add((testEntry.Name, testEntry.Scope, testEntry.Kind));
+
+            // Act & Assert
+            var action = () => _manager.Add(testEntry);
+            action.Should().NotThrow();
+
+            // Verify it was added
+            var exists = _manager.Exists(testEntry.Name, testEntry.Scope, testEntry.Kind);
+            exists.Should().BeTrue();
+
+            // Cleanup
+            _manager.Remove(testEntry.Name, testEntry.Scope, testEntry.Kind);
+        }
+        else
+        {
+            // When running without admin privileges, should throw
+            var action = () => _manager.Add(testEntry);
+            action.Should().Throw<UnauthorizedAccessException>();
+        }
     }
 
     private static bool IsAdministrator()

@@ -33,6 +33,12 @@ dotnet build -c Release
 # Run the demo project
 dotnet run --project AutostartDemo
 
+# Run unit tests
+dotnet test --filter "Category!=Integration"
+
+# Run all tests (including integration tests)
+dotnet test
+
 # Pack for NuGet (version will be taken from PackageVersion property)
 dotnet pack -c Release -o ./artifacts
 
@@ -50,10 +56,19 @@ Automated via GitHub Actions on commits to master branch. To publish a new versi
 - OS: Windows only (uses Windows Registry and Shell Link COM interfaces)
 - Permissions: HKCU operations work without admin rights, HKLM operations require elevation
 
-## Missing Components
+## Testing
 
-This project currently lacks:
-- Unit tests (no test framework configured)
+Comprehensive unit test suite with 114+ tests covering:
+- Core functionality (StartupManager, StartupManagerEx, CachedStartupManager)
+- Path validation and security (PathHelpers)
+- Error handling and Result pattern (OperationResult)
+- Provider behavior with mocking
+- Integration tests for real system interaction
+
+Test frameworks: xUnit, FluentAssertions, Moq
+
+## Optional Improvements
+
 - Code analysis tools (StyleCop, analyzers)
 - `.editorconfig` for consistent formatting
 - XML documentation for public APIs

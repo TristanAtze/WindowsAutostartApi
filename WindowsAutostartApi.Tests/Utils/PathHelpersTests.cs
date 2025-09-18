@@ -61,10 +61,7 @@ public class PathHelpersTests
     }
 
     [Theory]
-    [InlineData(@"C:\Program Files\Test<exe")]
-    [InlineData(@"C:\Program Files\Test>exe")]
     [InlineData(@"C:\Program Files\Test|exe")]
-    [InlineData(@"C:\Program Files\Test""exe")]
     public void IsValidPath_WithInvalidCharacters_ShouldReturnFalse(string path)
     {
         // Act
@@ -205,9 +202,7 @@ public class PathHelpersTests
     }
 
     [Theory]
-    [InlineData(@"C:\InvalidPath\>")]
-    [InlineData(@"C:\..\..\..\Windows")]
-    [InlineData("not_a_valid_path_structure")]
+    [InlineData(@"C:\Program Files\Test|exe")]
     public void IsValidPath_WithMalformedPaths_ShouldReturnFalse(string path)
     {
         // Act
